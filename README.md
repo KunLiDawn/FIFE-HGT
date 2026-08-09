@@ -89,8 +89,10 @@ Example command:
 ```
 $ GIFEHGT kmerFilter --fasta path/to/example/data/fa/sacCer3_NC_001144.5.fa --mode accelerated
 ```
-Results can be found in the directory `path/to/example/kmerFilter`.  
-- `path/to/example/kmerFilter/4merFilter_removeSimRep.fa`: the fragments which are most different with target genome.
+Results can be found in the directory `path/to/example/kmerFilter`. 
+- `kmerFilter/new.fasta`: normalized target-genome FASTA used by downstream modules.
+- `kmerFilter/kmerFilter_removeSimRep.fa`: compositionally atypical fragments retained after simple-repeat filtering; this is the principal fragment input for seqAlign.
+- `kmerFilter/kmerFilter_removeSimRep.bed`: genomic coordinates of the retained fragments. 
 #### 2. `splitDB`: Split the genomic database into three groups: SG, CRG and DRG
 The script will split the genomic database into three groups: SG, CRG and DRG and update taxonomic information of all organisms in genomic datasets.
 ```
@@ -123,6 +125,12 @@ Example command:
 $ GIFEHGT splitDB --id GCF_000146045.2 --taxo Fungi,Ascomycota,Saccharomycetes,Saccharomycetales --taxoes path/to/example/data/db/all_range.txt --type path/to/example/data/db/all_type.txt
 ```
 Results can be found in the directory `path/to/example/splitDB`.  
+- `splitDB/kingdom.id` and `splitDB/e_kingdom.id`: genome IDs inside and outside the target kingdom, respectively.
+- `splitDB/phylum.id`, `splitDB/class.id` and `splitDB/order.id`: genome IDs in the same phylum, class and order as the target, respectively.
+- `splitDB/e_phylum.id`, `splitDB/e_class.id` and `splitDB/e_order.id`: genome IDs outside the corresponding taxonomic groups.
+- `splitDB/type.txt`: genome IDs and their taxonomic group labels.
+- `splitDB/kingdom-<self>.id`: comparison groups for <self> = phylum, class, order or species.
+
 #### 3. `seqAlign`: Sequence aligment using LASTZ
 The script will acquire sequences of target genome which can align with genomes in DRG.
 ```
@@ -161,6 +169,10 @@ Example command:
 $ GIFEHGT seqAlign --db path/to/example/data/db/refseq
 ```
 Results can be found in the directory `path/to/example/seqAlign`.  
+- `seqAlign/distant/axt/<genome_id>.axt`: raw LASTZ axt+ alignment between the filtered target fragments and a genome in the distant-related group.
+- `seqAlign/close/axt/<genome_id>.axt`: raw LASTZ axt+ alignment between distant-group-supported target regions and a genome in the close-related group.
+Coverage-conversion and merged-coordinate files are removed after `screenHGT` has consumed them. The AXT files are retained for alignment inspection andreanalysis.
+
 #### 4.  `screenHGT`: Screen potential HGTs using sequence alignment results
 The script will acquire sequences of target genome which have higher identity with genomes in DRG than that in CRG. If Strict mode is chosen, it will require the similarity between sequences of target genome and genomes in CRG or DRG is high than one threshold. Besides, the sequences with too high or too low GC percentage, overlapped simple repeat, low complex repeat, single-copy-gene common to eukaryotes, ERV and mitochondrial and chloroplast (if have) sequences are removed. 
 ```
@@ -216,8 +228,16 @@ Example command (strict mode is used):
 ```
 $ GIFEHGT screenHGT --mode Strict --repeat path/to/example/data/rmsk/rmsk.txt --singlecopy path/to/example/data/singlecopy/eukaryota.faa --mitChl path/to/example/data/mitochondria_chloroplast/mitochondria.fa --taxo Fungi,Ascomycota,Saccharomycetes,Saccharomycetales
 ```
-Results can be found in the directory `path/to/example/screenHGT`. 
-- `path/to/example/screenHGT/modeStrict/HGT.fa`: the sequences of potential HGTs.
+Results can be found in `path/to/example/screenHGT` for Original mode and `path/to/example/screenHGT/modeStrict` for Strict mode.
+
+- `HGT.fa`: non-redundant candidate HGT sequences before WGS validation.
+- `HGT.bed`: genomic coordinates of the candidate HGT regions.
+- `HGT.id`: candidate identifiers used by downstream modules.
+- `HGT.info`: candidate-level taxonomic distribution information.
+- `HGT_<distant>-<self>.bed` and `HGT_<distant>-<self>.id`: candidate coordinates and IDs for each taxonomic comparison stratum.
+- `tree_<distant>.info`: species-distribution summary for the screened regions.
+Per-candidate homolog evidence is retained under `screenHGT/tree/<HGT_ID>/cov-hit.species.txt` in Original mode and `screenHGT/tree/<HGT_ID>/cov-hit.species.strict.txt` in Strict mode.
+
 #### 5.  `WGSValidate`: Validate potential HGTs using WGS datasets
 The script will validate potential HGTs using WGS datasets.
 ```
@@ -243,7 +263,7 @@ Options (defaults in parentheses):
 
     --HGTId			<string>        The file of potential HGTs id. (./screenHGT/HGT.id or ./screenHGT/modeStrict/HGT.id)
 
-    --HGTInfoDir		<string>        The information directory of homologous sequences for HGTs. (./screenHGT/tree_kingdom)
+    --HGTInfoDir		<string>        The information directory of homologous sequences for HGTs. (./screenHGT/tree)
 
     --HGTInfoFile		<string>        The information file of homologous sequences for HGTs. (./screenHGT/HGT.info or ./screenHGT/modeStrict/HGT.info)
 
@@ -273,8 +293,17 @@ Example command (strict mode is used):
 ```
 $ GIFEHGT WGSValidate --dbdir path/to/example/data/db/refseq/ --mode Strict --dbInfo path/to/example/data/db/all_info.txt --taxo Fungi,Ascomycota,Saccharomycetes,Saccharomycetales --dbWGSDir path/to/example/data/db/WGSdata/
 ```
-Results can be found in the directory `path/to/example/WGSValidate`. 
-- `path/to/example/WGSValidate/afterWGS/HGT.fa`: the sequences of final HGTs.
+Results can be found in the directory `path/to/example/WGSValidation`. 
+- `WGSValidation/table/WGS.info`: summary of the species and candidate-associated homologs evaluated using WGS data.
+- `WGSValidation/matrix/validated.id`: candidate-level summary of WGS support.
+- `WGSValidation/matrix/notvalidated.id`: candidate–species pairs that did not pass or could not be assessed by WGS validation.
+- `WGSValidation/afterWGS/HGT.fa`: non-redundant candidate HGT sequences after WGS validation.
+- `WGSValidation/afterWGS/HGT.bed`: genomic coordinates of the post-WGS candidates.
+- `WGSValidation/afterWGS/HGT.id`: post-WGS candidate identifiers used for final counting and phylogenetic analysis.
+- `WGSValidation/afterWGS/HGT.info`: updated taxonomic distribution information after WGS validation.
+- `WGSValidation/afterWGS/HGT_<distant>-<self>.bed` and `WGSValidation/afterWGS/HGT_<distant>-<self>.id`: post-WGS candidate subsets for each taxonomic comparison stratum.
+The WGS-filtered homolog table is written to `screenHGT/tree/<HGT_ID>/cov-hit.species.WGS.txt` in Original mode or `screenHGT/tree/<HGT_ID>/cov-hit.species.strict.WGS.txt` in Strict mode.
+
 #### 6. `conPhyTree`: Construct sequence phylogenetic tree to validate HGTs
 The script will construct sequence phylogenetic tree to validate HGTs.
 ```
@@ -319,6 +348,7 @@ Example command:
 $ GIFEHGT conPhyTree --mode Strict --genomeId GCF_000146045.2 --fullName Saccharomyces_cerevisiae_S288C --dbId path/to/example/data/db/all_id.txt --dbInfo path/to/example/data/db/all_info.txt
 ```
 Results can be found in the directory `path/to/example/conPhyTree`. 
+- `conPhyTree/tree_species/<HGT_ID>.tree`: final Newick tree for one candidate, with database genome IDs converted to species names.
 
 [1]: http://www.bx.psu.edu/~rsharris/lastz
 [2]: https://tandem.bu.edu/trf/downloads
